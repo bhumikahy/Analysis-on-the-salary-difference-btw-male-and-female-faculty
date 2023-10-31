@@ -1,0 +1,333 @@
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+```
+
+## Analysis on the salary difference between male and female faculty members
+
+```{r echo=FALSE, out.width='10cm', fig.cap='Credit: ABA Journal', fig.align='center'}
+knitr::include_graphics('/Users/bhumi/Documents/Spring 2022/DSA-8020/Project/salary-difference.jpeg')
+```
+
+### The salaries dataset and variables description
+
+The datasets that we’ll use is the 'Salaries' dataset within the 'carData' package. The dataset consists of nine-month salaries collected from 397 collegiate professors in the U.S. during 2008 to 2009. In addition to salaries, the professor’s rank, sex, discipline, years since Ph.D., and years of service was also collected.  
+Thus, there is a total of 6 variables, which are described below.
+
+**rank:** Factor variable composed by te following (AssocProf,AsstProf,Prof).  
+
+**discipline:** Factor variable with levels A (“theoretical” departments) or B (“applied” departments).  
+
+**yrs.since.phd:** Number of years since the professor has obtained their PhD.  
+
+**yrs.service:** Number of years the professor has served university.  
+
+**sex:** Factor variable with levels (Female, Male)  
+
+**salary:** Nine-month salary, in dollars.   
+
+### Load the dataset
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(broom)
+data(Salaries, package = "carData")
+```
+
+## Descriptive summary
+
+Our project's goal is to identify the analysis on the salary difference between male and female faculty members. In order to do this, we are going to analyze which of the variables in the dataset are important and should be considered through regression analysis.  
+
+At first we will spell out the rank variables and rename discipline variables to its meaningful name ensuring both rank and discipline are factors
+```{r echo=FALSE}
+Salaries <- Salaries %>%
+  mutate(
+    rank = case_when(
+      rank == "AssocProf" ~ "Associate Professor",
+      rank == "AsstProf" ~ "Assistant Professor",
+      rank == "Prof" ~ "Professor"
+    ),
+    discipline = case_when(
+      discipline == "A" ~ "Theoretical",
+      discipline == "B" ~ "Applied"
+    )
+  ) %>%
+  mutate(
+    rank = as.factor(rank),
+    discipline = as.factor(discipline)
+  )
+
+```
+
+```{r echo=FALSE}
+head(Salaries)
+```
+
+```{r echo=FALSE}
+summary(Salaries)
+```
+The salaries data has three categorical variables including sex and three numerical variables including salary which is a response variable. 
+The professor's salary in this sample range from 57800 to 231545 dollars. The mean of the salaries is 113706 dollars, which means the average amount a professor earn in nine months is 113706 dollars.  
+We can see that the sex data is highly unbalanced, that means the size of the male faculty (358) is a lot more than the female faculty (only 39).    
+
+
+### Contingency table
+
+```{r echo=FALSE}
+table(Salaries[,1:2])
+```
+
+We have three different ranks - Assistant Prof, Associate Prof and the Professor. Similarly, we have two different discipline - Applied and Theoretical.  
+From the contingency table, we can say that there are 62.5% professor's in the applied department and 72% of Professor's in the theoretical department which is slightly higher.
+We can also see that there are bit more faculties in the Applied discipline than the Theoretical discipline.  
+
+**Normalized form**  
+
+```{r echo=FALSE}
+table(Salaries[,1:2]) / apply(table(Salaries[,1:2]), 2, sum)
+```
+
+### Numerical and graphical summary  
+
+Here, we will first extract the categorical and numerical variables. 'rank', 'discipline', 'sex' are the categorical variables and 'years since phd', 'years service', 'salary' are the numerical variables.  
+**Bar chart**     
+(1) Professor rank is quite higher than the other two ranks  
+(2) More faculty in the Applied department than the Theoretical department. In terms of proportions we are reasonably close 54% vs 46%.  
+(3) Size of the male faculty is higher than the female faculty  
+
+**Histogram**  
+(1)The years since PhD is skewed right. The mean and median values are reasonably close  
+(2) The years of service is little bit skewed to the right right. More people could have joined recently and you can see some faculty have stayed more than 60 years. Here we can see that mean value is slightly larger than the median value  
+(3)Salary distribution is skewed right but a bit closer to symmetric. We can see that the mean is slightly higher than the median.   
+There are more professors (~2/3) than associate and assistant professors combined (~1/3). The disciplines are relatively close to equal.There are way more male than female professors.    
+
+```{r echo=FALSE, fig.align='center'}
+categorical <- which(colnames(Salaries) %in% c("rank", "discipline", "sex"))
+numerical <- which(colnames(Salaries) %in% c("yrs.since.phd", "yrs.service", "salary"))
+
+
+for (i in categorical) barplot(sort(table(Salaries[,i]), decreasing = T), las = 1,
+                           main = colnames(Salaries)[i])
+for (i in numerical){
+  hist(Salaries[,i], 30, main = colnames(Salaries)[i], las = 1)
+  abline(v = mean(Salaries[,i]), col = "blue")
+  abline(v = median(Salaries[,i]), col = "red")
+  legend("topright", legend = c("Mean", "Median"), lty = 1, col = c("blue", "red"))
+}
+```
+
+**Boxplot**
+From the boxplot, we can observe that as the rank increases the salary also increases. The mean salary (blue dot) for Male is comparatively higher as compared to female. It also suggests that associate professors earn lower salaries compare to assistant professors, and professors.    
+
+```{r echo=FALSE, warning=FALSE}
+ggplot(Salaries, aes(x = sex, y = salary, color = sex)) +
+    geom_boxplot()+
+    geom_point(size = 2, position = position_jitter(width = 0.2)) +
+    stat_summary(fun.y = mean, geom = "point", shape = 20, size = 6, color = "blue")+
+    theme_classic() +
+    facet_grid(.~rank)
+```
+
+**Box plot - Salary vs Discipline**  
+
+The box plot for the categorical variables "discipline” suggests that, salaries differences by discipline where applied departments professors seem to receive significant more salaries either when they have lower or higher salaries.  
+
+```{r echo=FALSE}
+plot(salary~discipline, data=Salaries)
+```
+
+According to the below boxplot (Salar Vs Sex), there are three outliers in the male salary.  
+
+```{r echo=FALSE}
+library(ggplot2)
+ggplot(Salaries, aes(x=sex, y=salary))+
+    geom_boxplot()+
+    ggtitle("Figure 1: Female and Male Professors' Salaries")
+```
+
+
+### Pairwise Scatterplot  
+
+- From the pairwise matrix scatter plot, we can see that there is, as expected, a strong positive linear relationship with 'yrs.service' and 'yrs.since.phd'. This suggest that multicolinearity will probably be an issue with these two columns as they are numerical variables. So, we will need to further investigate that in the future models.    
+- There is a moderate positive linear relationship between 'salary' and 'yrs.since.phd'.    
+- And a even weaker positive linear relationship between 'salary' and 'yrs.service'.    
+
+```{r echo=FALSE}
+pairs(Salaries[, numerical], cex = 0.5, col = "blue")
+cor(Salaries[, numerical])
+```
+
+## Regression  
+
+### Simple Linear Regression  
+
+The first fitted model we decided to fit was salary Vs. years since PhD.  
+
+```{r echo=FALSE}
+salary.phd <- lm(salary ~ yrs.since.phd, data=Salaries)
+summary(salary.phd)
+
+plot(Salaries$yrs.since.phd, Salaries$salary, main="Salary vs Professors years since PhD", xlab = "Professors years since PhD", ylab = "Salary")
+abline(salary.phd,col=2,lwd=2)
+
+```
+
+The linear regression model for Salary vs Years since Phd is as follows:    
+**Salary=91718.7+985.3∗yrs.since.phd**  
+
+We can see that the summary statistics show that 17.58% of the variability in salaries can be explained by the fitted linear regression model and the model overall seems to be valid. The plot suggests that there is a positive relationship between these variables. Although, this relationship is not considered to be strong we are going to keep exploring this model to see if it is a good fit for salaries analysis.    
+
+However, salary cannot be explained by years since Phd alone - we can extend the model by including additional explanatory variables - we will estimate the multiple regression model  
+
+
+### Full Model (Multiple Linear Regression)
+
+Let’s fit a multiple linear regression model by supplying all independent variables except the dependent variable (salary).  
+
+Here we can observe that a person gets an average salary of 65955.2 dollars. The associate professor level is set to the reference level. You can interpret that as ranking increases i.e., from assistant to associate to the professor, the average salary also increases. let’s interpret a continuous variable to say “years of service”. As years of service increases by 1 year, the average salary drops by 489.5 dollars holding all other variables constant. It also shows that 45.47% of the variability can be explained by the fitted linear regression model.  
+
+Similarly, here the discipline Theoretical dept is the reference category. The Applied discipline is significantly associated with an average increase of 14417.6 dollars in salary compared to theoretical departments holding other variables at constant.  
+
+In this section we decided to further our analysis examining if salary is affected for more than one variable. For this part we start considering all variables. The full model is as follows:  
+
+```{r echo=FALSE}
+lm_fullmodel <- lm(salary~., data = Salaries)
+summary(lm_fullmodel)
+```
+
+### Stepwise Regression  
+
+As per our initial assumption of multicolinearity (correlation among independent variables) and filter out essential variables/features from a large set of variables, a stepwise regression is usually performed. The process starts with initially fitting all the variables and after that, with each iteration, it starts eliminating variables one by one if the variable does not improve the model fit. The AIC metric is used for checking model fit improvement.  
+
+```{r echo=FALSE}
+step(lm_fullmodel, direction = "backward")
+```
+
+Here, as we can see that it eliminated the 'sex' variable from the full model but ir hardly caused any improvement in the AIC value.   
+
+
+### Fitting the improved model  
+
+Now, let's refit the full model with the best model variables suggested by the stepwise process above.  
+
+We note that from our improved model, having **more** experience **lowers** the salary but the more time since PhD - the higher the salary.  
+
+```{r echo=FALSE}
+lm_step_backward <- lm(formula = salary ~ rank + discipline + yrs.since.phd + yrs.service, data = Salaries)
+summary(lm_step_backward)
+```
+
+Hence these explanatory variables are tightly connected (eg: linear relationship), we will use VIF to measure the multicollinearity.  
+
+The Pearson correlation between years since Ph.D. and years service is 0.9096491 which is almost 1. This means that both the variables hold a strong positive linear relationship. Therefore, we should avoid considering both the variables in our fitted regression model since they are not independent and would affect the our prediction results. The VIF test for this model shows that 2 out of the 5 variables are indeed pretty high, these two variables are years since Ph.D. with a VIF of 7.518936 a years of service with a VIF of 5.923038.Therefore, we can say that the coefficients in our sample were poorly estimated and the variables years since PhD and years service should be further analyzed.  
+
+```{r echo=FALSE}
+lm_fullmodel <- lm(salary~., data = Salaries)
+car::vif(lm_fullmodel)
+```
+
+In order to address these issues we are going to compare the full model with a reduce model. Essentially, we will consider all predictor variables except sex and years since PhD because it has a higher VIF. The output for the reduced model is below:  
+
+```{r echo=FALSE}
+reduced_model <- lm(salary ~ rank + discipline + yrs.service, data=Salaries)
+summary(reduced_model)
+
+car::vif(reduced_model)
+```
+
+
+Reducing the model seems to partially address the issues with col-linearity. The VIF test shows that all values are below 5 which is a good indicator for no col-linearity problems. However, the summary of the model shows that excluding sex and years service from the model does not completely fix collinearity. As we can see years service still has a negative coefficient.  
+ 
+
+### Subset wise selection  
+
+We are going to focus on estimating which variables should be included in the fitted multiple linear model. In this case, we applied subset wise selection.   
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(caret)
+library(leaps)
+bestmodels <- regsubsets(salary ~ ., data = Salaries)
+
+res.sum <- summary(bestmodels)
+```
+
+```{r echo=FALSE}
+# Identify the best overall model
+criteria <- data.frame(
+  Adj.R2 = res.sum$adjr2,
+  Cp = res.sum$cp,
+  BIC = res.sum$bic)
+
+criteria
+
+```
+
+```{r echo=FALSE}
+par(mfrow=c(2,2))
+plot(res.sum$rss,xlab="Number of Variables",ylab="RSS",type="l")
+
+plot(res.sum$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
+which.max(res.sum$adjr2) 
+## [1] 6
+points(6,res.sum$adjr2[6],col="red",pch=20)
+
+plot(res.sum$cp,xlab="Number of Variables",ylab="Cp",type="l")
+which.min(res.sum$cp) 
+## [1] 5
+points(5,res.sum$cp[5],col="red",pch=20)
+
+plot(res.sum$bic,xlab="Number of Variables",ylab="BIC",type="l")
+which.min(res.sum$bic) 
+## [1] 3
+points(3,res.sum$bic[3],col="red",pch=20)
+```
+
+As we can see that subset wise selection suggests third model according to BIC criteria. Therefore we are going to fit a model using BIC suggestion such as 'rank' and 'discipline'.  
+The fitted model is shown below:  
+
+```{r echo=FALSE}
+final_model <- lm(salary ~ rank + discipline, data = Salaries)
+summary(final_model)
+```
+
+### T-TEST of Significance Difference
+
+```{r echo=FALSE}
+t.test1 <- filter(Salaries, sex=='Male')
+c1 <- (t.test1 [6] )
+
+t.test2 <- filter(Salaries, sex=='Female')
+c2 <- (t.test2[6])
+
+t.test(c1,c2)
+
+# t-test on the salaries of male and female full professors (rank='Prof')
+t.test1 <- filter(Salaries, sex=='Male',rank=='Professor')
+c1<-(t.test1[6])
+t.test2 <- filter(Salaries, sex=='Female', rank=='Professor')
+c2 <- (t.test2[6])
+t.test(c1,c2)
+```
+
+**Conclusion:**
+44.07% of the variability can be explained by the fitted multiple linear regression model. Finally we can conclude that discipline and rank are significant in the analysis of Salary than the **sex** variable. Therefore, we should consider having them in the model since they have steady positive relation with salary.  
+
+The above t-test yields a p-value=0.002664 (significance level=0.05), which means that the salaries of male and female faculty are statistically different. To probe a bit further, we wonder whether the difference might be due to the different numbers of male and female, at the different ranks. So to eliminate the effect of rank, let us do a t-test on the salaries of male and female full professors (rank=’Prof’). This test indicates the salaries of the two groups are NOT statistically different when the variable rank is fixed(p-value = 0.3098 with significance level=0.05).  
+
+
+
+
+
+
+
+
+
+
+
+
+
